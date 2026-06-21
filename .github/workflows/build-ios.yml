@@ -4,7 +4,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest # هنا يكمن الحل السحري!
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -13,12 +13,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      # اختيار أحدث إصدار متوفر فعلياً على السيرفر
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '16.2'
 
       - name: Install Dependencies
         run: npm install
