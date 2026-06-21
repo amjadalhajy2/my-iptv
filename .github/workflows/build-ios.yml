@@ -33,13 +33,16 @@ jobs:
       - name: Build Xcode Project (Unsigned for Device)
         run: |
           cd ios
+          # استخراج اسم التطبيق الصحيح مباشرة من اسم مساحة العمل
           WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME=$(xcodebuild -list -workspace "$WORKSPACE" -json | tr -d '\n[:space:]' | sed -E 's/.*"schemes":\["([^"]+)".*/\1/')
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          
+          echo "جاري بناء التطبيق الرئيسي: $SCHEME"
           xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
 
       - name: Package into IPA
         run: |
-          # البحث الشامل في كامل السيرفر عن ملف التطبيق (باستثناء مكتبات Node)
+          # البحث الشامل
           APP_PATH=$(find . -type d -name "*.app" -not -path "*/node_modules/*" | head -n 1)
           
           if [ -z "$APP_PATH" ]; then
