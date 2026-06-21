@@ -14,11 +14,11 @@ jobs:
         with:
           node-version: 20
 
-      # الأداة الصحيحة والمعتمدة لتفعيل الإصدار 16.4
+      # اختيار أحدث إصدار متوفر فعلياً على السيرفر
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: '16.2'
 
       - name: Install Dependencies
         run: npm install
