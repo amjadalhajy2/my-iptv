@@ -39,8 +39,15 @@ jobs:
 
       - name: Package into IPA
         run: |
-          # البحث الذكي عن مسار ملف التطبيق أينما كان
-          APP_PATH=$(find ios -type d -name "*.app" | head -n 1)
+          # البحث الشامل في كامل السيرفر عن ملف التطبيق (باستثناء مكتبات Node)
+          APP_PATH=$(find . -type d -name "*.app" -not -path "*/node_modules/*" | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "لم يتم العثور على ملف التطبيق، جاري طباعة محتويات مجلد المنتجات:"
+            find . -name "Release-iphoneos" -exec ls -la {} \;
+            exit 1
+          fi
+          
           echo "تم العثور على التطبيق في المسار: $APP_PATH"
           
           # تجهيز المجلد وتغليف التطبيق
