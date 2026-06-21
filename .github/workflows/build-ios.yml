@@ -12,13 +12,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
 
       - name: Expo Prebuild
-        run: npx expo prebuild --platform ios --clean --no-interactive
+        run: npx expo prebuild --platform ios --clean
 
       - name: Install CocoaPods
         run: |
