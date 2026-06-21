@@ -1,8 +1,8 @@
-import 'react-native-url-polyfill/auto';
-import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, Image, Alert, SafeAreaView } from 'react-native';
-import { VLCPlayer } from 'react-native-vlc-media-player'; // مكتبة المشغل الجديدة
 import { createClient } from '@supabase/supabase-js';
+import { useRef, useState } from 'react';
+import { Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import 'react-native-url-polyfill/auto';
+import { VLCPlayer } from 'react-native-vlc-media-player'; // مكتبة المشغل الجديدة
 
 // ==========================================
 // 1. إعدادات Supabase 
