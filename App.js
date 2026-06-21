@@ -7,8 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 // ==========================================
 // 1. إعدادات Supabase 
 // ==========================================
-const SUPABASE_URL = 'https://YOUR_PROJECT_URL.supabase.co'; // ضع رابطك هنا
-const SUPABASE_KEY = 'YOUR_ANON_PUBLIC_KEY'; // ضع مفتاحك هنا
+const SUPABASE_URL = 'https://kpfymvtyqbyjmlqfgujo.supabase.co'; // ضع رابطك هنا
+const SUPABASE_KEY = 'sb_publishable_g7dHfpmPHcQwAWsO9FFuGw_4lG8fyLc'; // ضع مفتاحك هنا
 
 let supabase = null;
 
@@ -17,7 +17,7 @@ try {
   let cleanKey = SUPABASE_KEY.trim();
   if (!cleanUrl.startsWith('http')) cleanUrl = 'https://' + cleanUrl;
   
-  if (cleanUrl !== 'https://YOUR_PROJECT_URL.supabase.co' && cleanUrl !== 'https://') {
+  if (cleanUrl !== 'https://kpfymvtyqbyjmlqfgujo.supabase.co' && cleanUrl !== 'https://') {
     supabase = createClient(cleanUrl, cleanKey);
   }
 } catch (error) {
