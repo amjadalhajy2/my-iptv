@@ -4,7 +4,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15 # أحدث نظام تشغيل ماك على الإطلاق
+    runs-on: macos-15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -14,11 +14,11 @@ jobs:
         with:
           node-version: 20
 
-      # إجبار السيرفر على استخدام أحدث نسخة (Beta/RC) للحصول على Swift 6.2
-      - name: Setup Latest Beta Xcode
+      # تحديد الإصدار المطلوب بدقة من القائمة المتوفرة
+      - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: 'latest-beta'
+          xcode-version: '16.4.0'
 
       - name: Install Dependencies
         run: npm install
