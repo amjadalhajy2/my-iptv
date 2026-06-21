@@ -14,8 +14,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Select Xcode 16.1
-        run: sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer
+      # الأداة الرسمية من آبل لتفعيل الإصدار الحديث من Xcode
+      - name: Set up Xcode 16.4
+        uses: apple/actions/setup-xcode@v3
+        with:
+          xcode-version: '16.4'
 
       - name: Install Dependencies
         run: npm install
