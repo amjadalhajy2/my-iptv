@@ -1,228 +1,134 @@
-import { createClient } from '@supabase/supabase-js';
 import { useRef, useState } from 'react';
-import { Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import 'react-native-url-polyfill/auto';
-import { VLCPlayer } from 'react-native-vlc-media-player'; // مكتبة المشغل الجديدة
+import { Dimensions, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // مكتبة الأيقونات المثبتة لديك
+import { VLCPlayer } from 'react-native-vlc-media-player';
+import { WebView } from 'react-native-webview';
 
-// ==========================================
-// 1. إعدادات Supabase 
-// ==========================================
-const SUPABASE_URL = 'https://kpfymvtyqbyjmlqfgujo.supabase.co'; // ضع رابطك هنا
-const SUPABASE_KEY = 'sb_publishable_g7dHfpmPHcQwAWsO9FFuGw_4lG8fyLc'; // ضع مفتاحك هنا
-
-let supabase = null;
-
-try {
-  let cleanUrl = SUPABASE_URL.trim();
-  let cleanKey = SUPABASE_KEY.trim();
-  if (!cleanUrl.startsWith('http')) cleanUrl = 'https://' + cleanUrl;
-  
-  if (cleanUrl !== 'https://kpfymvtyqbyjmlqfgujo.supabase.co' && cleanUrl !== 'https://') {
-    supabase = createClient(cleanUrl, cleanKey);
-  }
-} catch (error) {
-  console.log("تم تجاوز خطأ تهيئة Supabase:", error.message);
-}
+// رابط موقعك الذي سيتم عرضه داخل التطبيق (عدله برابط موقعك الحقيقي)
+const WEBSITE_URL = 'https://amjadalhajy2.github.io/tv/';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('login'); 
-  const [credentials, setCredentials] = useState({ server: '', user: '', pass: '' });
-  const [categories, setCategories] = useState([]);
-  const [movies, setMovies] = useState([]);
-  const [activeCategory, setActiveCategory] = useState('');
+  const webViewRef = useRef(null);
   
-  const [currentStreamId, setCurrentStreamId] = useState(null);
-  const [videoUrl, setVideoUrl] = useState('');
-  const lastSyncTime = useRef(0);
+  // حالة التحكم بالتشغيل والمعلومات القادمة من الويب
+  const [activeVideo, setActiveVideo] = useState({
+    isPlaying: false,
+    url: '',
+    resumeTime: 0,
+  });
 
-  // ==========================================
-  // 2. تسجيل الدخول
-  // ==========================================
-  const handleLogin = async () => {
-    let { server, user, pass } = credentials;
-    server = server.trim().replace(/\/$/, "");
-
-    if (!server || !user || !pass) {
-      Alert.alert("تنبيه", "الرجاء تعبئة جميع الحقول");
-      return;
-    }
-
+  // 1. دالة لاستقبال الأوامر من صفحة الويب
+  const handleMessageFromWeb = (event) => {
     try {
-      const targetUrl = `${server}/player_api.php?username=${user}&password=${pass}`;
-      const response = await fetch(targetUrl);
-      const data = await response.json();
-
-      if (data.user_info && data.user_info.auth === 1) {
-        setCredentials({ server, user, pass });
-        fetchCategories(server, user, pass);
-      } else {
-        Alert.alert("خطأ", "بيانات الدخول غير صحيحة");
+      const data = JSON.parse(event.nativeEvent.data);
+      
+      if (data.type === 'PLAY_MOVIE') {
+        // تفعيل المشغل وتمرير الرابط ووقت البدء
+        setActiveVideo({
+          isPlaying: true,
+          url: data.url,
+          resumeTime: data.resumeTime || 0,
+        });
       }
     } catch (error) {
-      Alert.alert("خطأ اتصال", "تأكد من رابط السيرفر.");
+      console.error("خطأ في قراءة الرسالة من الويب:", error);
     }
   };
 
-  // ==========================================
-  // 3. جلب الأقسام والأفلام
-  // ==========================================
-  const fetchCategories = async (server, user, pass) => {
-    try {
-      const targetUrl = `${server}/player_api.php?username=${user}&password=${pass}&action=get_vod_categories`;
-      const response = await fetch(targetUrl);
-      const data = await response.json();
-      setCategories(data);
-      setCurrentScreen('categories');
-    } catch (error) {
-      Alert.alert("خطأ", "فشل جلب الأقسام");
-    }
-  };
-
-  const fetchMovies = async (categoryId, categoryName) => {
-    try {
-      const { server, user, pass } = credentials;
-      const targetUrl = `${server}/player_api.php?username=${user}&password=${pass}&action=get_vod_streams&category_id=${categoryId}`;
-      const response = await fetch(targetUrl);
-      const data = await response.json();
-      setMovies(data);
-      setActiveCategory(categoryName);
-      setCurrentScreen('movies');
-    } catch (error) {
-      Alert.alert("خطأ", "فشل جلب الأفلام");
-    }
-  };
-
-  // ==========================================
-  // 4. تشغيل الفيديو والمزامنة عبر محرك VLC
-  // ==========================================
-  const playMovie = async (streamId, containerExtension) => {
-    const { server, user, pass } = credentials;
-    const ext = containerExtension || 'mp4';
-    const url = `${server}/movie/${user}/${pass}/${streamId}.${ext}`;
+  // 2. دالة لإرسال وقت المشاهدة الحالي إلى صفحة الويب للمزامنة
+  const handleVideoProgress = (event) => {
+    // جلب الوقت الحالي بالثواني (مكتبة VLC تعيد الوقت بالملي ثانية أحياناً، يجب التأكد من القسمة على 1000 إذا لزم الأمر)
+    const currentTimeInSeconds = Math.floor(event.currentTime / 1000);
     
-    setCurrentStreamId(streamId);
-    setVideoUrl(url);
-    setCurrentScreen('player');
-
-    // ملاحظة: مع مكتبة VLC لا يمكننا تمرير نقطة التوقف قبل أن يبدأ الفيديو
-    // في بيئة الإنتاج المتقدمة سنحتاج لبناء دالة SeekTo مخصصة، ولكن الآن سيبدأ من البداية وتعمل المزامنة للحفظ
-  };
-
-  const saveProgress = async (currentTimeMillis) => {
-    if (!supabase || !currentTimeMillis) return; 
-    
-    const positionSeconds = Math.floor(currentTimeMillis / 1000);
-    if (positionSeconds - lastSyncTime.current >= 10) {
-      lastSyncTime.current = positionSeconds;
-      try {
-        await supabase.from('watch_progress').upsert({
-          username: credentials.user,
-          stream_id: currentStreamId,
-          position_seconds: positionSeconds,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'username, stream_id' });
-      } catch (e) {
-        console.log("خطأ في حفظ التقدم");
+    // حقن كود جافاسكريبت داخل الويب لتشغيل دالة الحفظ
+    const jsCode = `
+      if (window.updateWatchProgress) {
+        window.updateWatchProgress(${currentTimeInSeconds});
       }
+      true;
+    `;
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(jsCode);
     }
   };
 
-  // ==========================================
-  // 5. واجهات المستخدم
-  // ==========================================
-  if (currentScreen === 'login') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loginBox}>
-          <Text style={styles.title}>تسجيل الدخول</Text>
-          <TextInput style={styles.input} placeholder="رابط السيرفر" placeholderTextColor="#888" autoCapitalize="none" value={credentials.server} onChangeText={(t) => setCredentials({...credentials, server: t})} />
-          <TextInput style={styles.input} placeholder="اسم المستخدم" placeholderTextColor="#888" autoCapitalize="none" value={credentials.user} onChangeText={(t) => setCredentials({...credentials, user: t})} />
-          <TextInput style={styles.input} placeholder="كلمة المرور" placeholderTextColor="#888" autoCapitalize="none" secureTextEntry value={credentials.pass} onChangeText={(t) => setCredentials({...credentials, pass: t})} />
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>دخول</Text>
+  // 3. إغلاق الفيديو والعودة للموقع
+  const closeVideo = () => {
+    setActiveVideo({ isPlaying: false, url: '', resumeTime: 0 });
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      
+      {activeVideo.isPlaying ? (
+        // --- واجهة مشغل الفيديو (VLC) ---
+        <View style={styles.playerContainer}>
+          <VLCPlayer
+            style={styles.video}
+            videoAspectRatio="16:9"
+            source={{ uri: activeVideo.url }}
+            seek={activeVideo.resumeTime} // بدء التشغيل من نقطة التوقف
+            onProgress={handleVideoProgress} // تحديث الوقت باستمرار
+            progressUpdateInterval={5000} // تحديث كل 5 ثوانٍ لتقليل الضغط
+          />
+          
+          {/* زر الإغلاق العائم فوق الفيديو */}
+          <TouchableOpacity style={styles.closeButton} onPress={closeVideo}>
+            <Icon name="close-circle" size={32} color="#FFF" />
+            <Text style={styles.closeText}>عودة</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (currentScreen === 'categories') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.header}>الأقسام</Text>
-        <FlatList
-          data={categories.slice(0, 50)}
-          keyExtractor={(item) => item.category_id.toString()}
-          numColumns={2}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => fetchMovies(item.category_id, item.category_name)}>
-              <Text style={{ color: 'white', textAlign: 'center' }}>{item.category_name}</Text>
-            </TouchableOpacity>
-          )}
+      ) : (
+        // --- واجهة الموقع الإلكتروني (WebView) ---
+        <WebView
+          ref={webViewRef}
+          source={{ uri: WEBSITE_URL }}
+          onMessage={handleMessageFromWeb} // التنصت على رسائل الموقع
+          style={styles.webview}
+          allowsInlineMediaPlayback={true}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
         />
-      </SafeAreaView>
-    );
-  }
-
-  if (currentScreen === 'movies') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.row}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => setCurrentScreen('categories')}>
-            <Text style={styles.buttonText}>رجوع</Text>
-          </TouchableOpacity>
-          <Text style={styles.header}>{activeCategory}</Text>
-        </View>
-        <FlatList
-          data={movies.slice(0, 100)}
-          keyExtractor={(item) => item.stream_id.toString()}
-          numColumns={2}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => playMovie(item.stream_id, item.container_extension)}>
-              <Image source={{ uri: item.stream_icon }} style={styles.image} resizeMode="cover" />
-              <Text style={{ color: 'white', textAlign: 'center', marginTop: 5 }} numberOfLines={1}>{item.name}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  if (currentScreen === 'player') {
-    return (
-      <View style={styles.playerContainer}>
-        <TouchableOpacity style={styles.closePlayerBtn} onPress={() => {
-            setCurrentScreen('movies');
-        }}>
-          <Text style={styles.buttonText}>إغلاق وإيقاف</Text>
-        </TouchableOpacity>
-        
-        {/* مشغل VLC المدمج الذي يدعم كل الصيغ بما فيها MKV */}
-        <VLCPlayer
-          style={styles.video}
-          source={{ uri: videoUrl }}
-          autoplay={true}
-          resizeMode="contain"
-          onProgress={(event) => saveProgress(event.currentTime)}
-        />
-      </View>
-    );
-  }
+      )}
+    </SafeAreaView>
+  );
 }
 
+const { width, height } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212', padding: 10 },
-  loginBox: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { color: 'white', fontSize: 24, textAlign: 'center', marginBottom: 20 },
-  input: { backgroundColor: '#2c2c2c', color: 'white', padding: 15, borderRadius: 8, marginBottom: 15, textAlign: 'right' },
-  button: { backgroundColor: '#e50914', padding: 15, borderRadius: 8, alignItems: 'center' },
-  buttonText: { color: 'white', fontWeight: 'bold' },
-  header: { color: 'white', fontSize: 20, marginVertical: 15, textAlign: 'center', flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  backBtn: { backgroundColor: '#333', padding: 10, borderRadius: 5 },
-  card: { flex: 1, backgroundColor: '#1e1e1e', margin: 5, padding: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  image: { width: 100, height: 150, borderRadius: 5 },
-  playerContainer: { flex: 1, backgroundColor: 'black', justifyContent: 'center' },
-  video: { width: '100%', height: '100%' },
-  closePlayerBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, backgroundColor: 'rgba(255,0,0,0.7)', padding: 10, borderRadius: 5 }
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  playerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  video: {
+    width: width,
+    height: height,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 8,
+    borderRadius: 20,
+  },
+  closeText: {
+    color: '#FFF',
+    marginLeft: 5,
+    fontWeight: 'bold',
+  },
 });
